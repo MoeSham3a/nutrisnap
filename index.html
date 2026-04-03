@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <meta name="description" content="NutriSnap — AI-powered calorie counter with barcode scanner, water tracker and weight log"/>
+  <meta name="theme-color" content="#639922"/>
+  <title>NutriSnap</title>
+  <link rel="manifest" href="manifest.json"/>
+  <link rel="apple-touch-icon" href="icons/icon-192.png"/>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --g:#639922;--gl:#EAF3DE;--gd:#3B6D11;
+      --a:#BA7517;--al:#FAEEDA;
+      --b:#185FA5;--bl:#E6F1FB;--bm:#378ADD;
+      --r:#E24B4A;--rl:#FCEBEB;
+      --p:#534AB7;--pl:#EEEDFE;
+      --t:#1a1a1a;--t2:#666;
+      --bg:#fff;--bg2:#f5f5f3;
+      --bd:rgba(0,0,0,0.1);--bd2:rgba(0,0,0,0.2);
+      --rm:8px;--rl2:12px
+    }
+    @media (prefers-color-scheme:dark){
+      :root{
+        --t:#f0f0f0;--t2:#999;
+        --bg:#1c1c1e;--bg2:#2c2c2e;
+        --bd:rgba(255,255,255,0.1);--bd2:rgba(255,255,255,0.2)
+      }
+    }
+    html,body{height:100%;background:var(--bg)}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--t);max-width:480px;margin:0 auto;padding:0 12px}
+    .shell{display:flex;flex-direction:column;gap:10px;padding:.75rem 0 5rem}
+    .topbar{display:flex;justify-content:space-between;align-items:center;padding:.25rem 0}
+    .topbar h1{font-size:22px;font-weight:600;color:var(--t)}
+    .topbar h1 span{color:var(--g)}
+    .tab-bar{display:flex;gap:3px;background:var(--bg2);border-radius:var(--rm);padding:3px;position:sticky;top:8px;z-index:10}
+    .tab{flex:1;padding:6px 4px;border:none;background:none;border-radius:6px;font-size:11px;cursor:pointer;color:var(--t2);font-family:inherit;white-space:nowrap;transition:all .15s}
+    .tab.active{background:var(--bg);color:var(--t);font-weight:600}
+    .section{display:none}.section.active{display:flex;flex-direction:column;gap:10px}
+
+    .card{background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl2);overflow:hidden}
+    .card-p{padding:1rem 1.1rem}
+    .card-hd{font-size:14px;font-weight:600;color:var(--t);margin-bottom:10px}
+
+    .ring-card{background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl2);padding:1rem 1.1rem;display:flex;gap:1rem;align-items:center}
+    .ring-wrap{position:relative;width:90px;height:90px;flex-shrink:0}
+    .ring-wrap svg{width:90px;height:90px;transform:rotate(-90deg)}
+    .ring-lbl{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;line-height:1.2}
+    .ring-lbl .rk{font-size:17px;font-weight:600;color:var(--t)}
+    .ring-lbl .rs{font-size:10px;color:var(--t2)}
+    .macros{display:flex;flex-direction:column;gap:7px;flex:1}
+    .mrow{display:flex;align-items:center;gap:7px}
+    .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+    .mn{font-size:11px;color:var(--t2);width:40px}
+    .bar-bg{flex:1;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden}
+    .bar-f{height:100%;border-radius:2px;transition:width .4s}
+    .mv{font-size:11px;font-weight:600;color:var(--t);min-width:32px;text-align:right}
+
+    .goal-badge{display:flex;align-items:center;justify-content:space-between;background:var(--bg2);border-radius:var(--rm);padding:8px 12px}
+    .gb-left{display:flex;align-items:center;gap:8px}
+    .gb-dot{width:9px;height:9px;border-radius:50%}
+
+    .cam-preview{width:100%;height:180px;background:var(--bg2);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden}
+    .cam-preview img.snap{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+    .cam-ph{text-align:center;color:var(--t2);z-index:1}
+    .cam-ph p{font-size:13px}.cam-ph small{font-size:11px;opacity:.7}
+    .btn-row{display:flex;gap:7px;padding:9px}
+    .btn{flex:1;padding:8px;border-radius:var(--rm);border:0.5px solid var(--bd2);background:var(--bg);color:var(--t);font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;font-family:inherit;transition:opacity .15s}
+    .btn.prim{background:var(--g);color:#fff;border-color:var(--g)}
+    .btn.blue{background:var(--b);color:#fff;border-color:var(--b)}
+    .btn:active{opacity:.8;transform:scale(.98)}
+    .btn:disabled{opacity:.4;cursor:not-allowed}
+
+    .analyzing{display:none;align-items:center;gap:10px;background:var(--al);border-radius:var(--rm);padding:9px 13px;font-size:13px;color:var(--a)}
+    .analyzing.show{display:flex}
+    .spin{width:13px;height:13px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    .res-card{display:none;background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl2);overflow:hidden}
+    .res-card.show{display:block}
+    .res-head{background:var(--gl);padding:11px 13px;border-bottom:0.5px solid var(--bd);display:flex;justify-content:space-between;align-items:center}
+    .res-name{font-size:14px;font-weight:600;color:#3B6D11;flex:1;margin-right:8px}
+    .res-badge{background:var(--g);color:#fff;padding:3px 9px;border-radius:99px;font-size:12px;font-weight:600;flex-shrink:0}
+    .res-macros{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:10px 13px;gap:6px}
+    .rm2{text-align:center}
+    .rm2 .rv{font-size:14px;font-weight:600;color:var(--t)}
+    .rm2 .rn{font-size:11px;color:var(--t2)}
+    .res-acts{display:flex;gap:7px;padding:0 13px 11px}
+
+    .bc-modal{display:none;background:rgba(0,0,0,0.6);border-radius:var(--rl2);padding:1.25rem;flex-direction:column;gap:12px}
+    .bc-modal.show{display:flex}
+    .bc-video-wrap{position:relative;border-radius:var(--rm);overflow:hidden;background:#000;height:180px}
+    .bc-video-wrap video{width:100%;height:100%;object-fit:cover}
+    .bc-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+    .bc-frame{width:200px;height:80px;border:2px solid rgba(255,255,255,0.8);border-radius:6px}
+    .bc-status{font-size:12px;color:var(--t2);text-align:center}
+    .bc-manual{display:flex;gap:7px}
+    .bc-manual input{flex:1;border-radius:var(--rm);padding:7px 10px;font-size:13px;border:0.5px solid var(--bd2);background:var(--bg);color:var(--t);font-family:inherit}
+
+    .log-item{background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rm);padding:9px 11px;display:flex;align-items:center;gap:9px}
+    .log-thumb{width:36px;height:36px;border-radius:5px;object-fit:cover;background:var(--bg2);flex-shrink:0}
+    .log-thumb.bc-icon{background:var(--bl);display:flex;align-items:center;justify-content:center;font-size:18px}
+    .log-info{flex:1;min-width:0}
+    .log-info .ln{font-size:13px;font-weight:600;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .log-info .lm{font-size:11px;color:var(--t2)}
+    .log-k{font-size:13px;font-weight:600;color:var(--g);flex-shrink:0}
+    .log-del{background:none;border:none;cursor:pointer;color:var(--t2);font-size:13px;padding:3px;flex-shrink:0}
+
+    .water-ring-wrap{display:flex;align-items:center;justify-content:center;gap:1.5rem;padding:.5rem 0}
+    .water-ring{position:relative;width:100px;height:100px}
+    .water-ring svg{width:100px;height:100px;transform:rotate(-90deg)}
+    .water-lbl{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;line-height:1.3}
+    .water-lbl .wv{font-size:18px;font-weight:600;color:var(--bm)}
+    .water-lbl .wu{font-size:10px;color:var(--t2)}
+    .water-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+    .water-btn{padding:9px 0;border-radius:var(--rm);border:0.5px solid var(--bd2);background:var(--bg);color:var(--t);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;text-align:center;transition:opacity .15s}
+    .water-btn:active{opacity:.7}
+    .water-log-item{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:7px 10px;background:var(--bl);border-radius:var(--rm)}
+    .water-log-item .wt{color:#0C447C;font-weight:500}
+    .water-log-item .wtime{font-size:11px;color:var(--t2)}
+
+    .weight-entry{display:flex;gap:7px;align-items:flex-end}
+    .weight-entry input{width:100%;border-radius:var(--rm);padding:8px 10px;font-size:14px;border:0.5px solid var(--bd2);background:var(--bg);color:var(--t);font-family:inherit}
+    .weight-entry label{font-size:12px;color:var(--t2);display:block;margin-bottom:4px}
+    .weight-log-item{display:flex;justify-content:space-between;align-items:center;padding:8px 11px;background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rm)}
+    .wlog-date{font-size:12px;color:var(--t2)}
+    .wlog-val{font-size:14px;font-weight:600;color:var(--t)}
+    .wlog-diff{font-size:11px;padding:2px 6px;border-radius:99px}
+    .wlog-diff.up{background:var(--rl);color:var(--r)}
+    .wlog-diff.dn{background:var(--gl);color:var(--gd)}
+    .wlog-diff.eq{background:var(--bg2);color:var(--t2)}
+    .wlog-del{background:none;border:none;cursor:pointer;color:var(--t2);font-size:12px;padding:3px}
+
+    .sec-hd{font-size:14px;font-weight:600;color:var(--t)}
+    .empty-state{font-size:13px;color:var(--t2);text-align:center;padding:1.25rem;background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl2)}
+
+    .profile-card{background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl2);padding:1.1rem;display:flex;flex-direction:column;gap:12px}
+    .pf-row{display:flex;gap:8px}
+    .pf-field{display:flex;flex-direction:column;gap:4px;flex:1}
+    .pf-field label{font-size:12px;color:var(--t2)}
+    .pf-field input,.pf-field select{width:100%;border-radius:var(--rm);padding:7px 9px;font-size:13px;border:0.5px solid var(--bd2);background:var(--bg);color:var(--t);font-family:inherit}
+    .goal-opts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+    .goal-opt{border:0.5px solid var(--bd2);border-radius:var(--rm);padding:9px 6px;cursor:pointer;text-align:center;background:var(--bg);transition:all .15s}
+    .goal-opt.selected{border-width:2px}
+    .go-icon{font-size:18px;margin-bottom:3px;line-height:1}
+    .go-name{font-size:12px;font-weight:600;color:var(--t)}
+    .go-sub{font-size:10px;color:var(--t2)}
+    .tdee-box{background:var(--bg2);border-radius:var(--rm);padding:10px;display:flex;flex-direction:column;gap:5px}
+    .tdee-row{display:flex;justify-content:space-between;font-size:12px}
+    .tdee-row .tl{color:var(--t2)}.tdee-row .tv{font-weight:600;color:var(--t)}.tdee-row .tv.hi{color:var(--g)}
+
+    .legend{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--t2)}
+    .legend span{display:flex;align-items:center;gap:3px}
+    .leg-sq{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+
+    .water-goal-row{display:flex;align-items:center;gap:8px;font-size:13px}
+    .water-goal-row input{width:70px;border-radius:var(--rm);padding:5px 8px;font-size:13px;border:0.5px solid var(--bd2);background:var(--bg);color:var(--t);font-family:inherit}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <div class="topbar">
+    <h1>Nutri<span>Snap</span></h1>
+    <span style="font-size:12px;color:var(--t2)" id="today-date"></span>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab active" onclick="switchTab('log')">Log</button>
+    <button class="tab" onclick="switchTab('water')">Water</button>
+    <button class="tab" onclick="switchTab('weight')">Weight</button>
+    <button class="tab" onclick="switchTab('history')">History</button>
+    <button class="tab" onclick="switchTab('profile')">Profile</button>
+  </div>
+
+  <!-- LOG TAB -->
+  <div class="section active" id="tab-log">
+    <div class="ring-card">
+      <div class="ring-wrap">
+        <svg viewBox="0 0 90 90">
+          <circle cx="45" cy="45" r="38" fill="none" stroke="var(--bg2)" stroke-width="8"/>
+          <circle cx="45" cy="45" r="38" fill="none" stroke="#639922" stroke-width="8"
+            stroke-dasharray="239" id="ring-progress" stroke-dashoffset="239" stroke-linecap="round"/>
+        </svg>
+        <div class="ring-lbl">
+          <div class="rk" id="total-kcal">0</div>
+          <div class="rs">/ <span id="goal-disp">2000</span></div>
+          <div class="rs">kcal</div>
+        </div>
+      </div>
+      <div class="macros">
+        <div class="mrow"><div class="dot" style="background:#639922"></div><span class="mn">Protein</span><div class="bar-bg"><div class="bar-f" id="bar-p" style="background:#639922;width:0%"></div></div><span class="mv" id="val-p">0g</span></div>
+        <div class="mrow"><div class="dot" style="background:#BA7517"></div><span class="mn">Carbs</span><div class="bar-bg"><div class="bar-f" id="bar-c" style="background:#BA7517;width:0%"></div></div><span class="mv" id="val-c">0g</span></div>
+        <div class="mrow"><div class="dot" style="background:#E24B4A"></div><span class="mn">Fat</span><div class="bar-bg"><div class="bar-f" id="bar-f2" style="background:#E24B4A;width:0%"></div></div><span class="mv" id="val-f">0g</span></div>
+        <div class="mrow"><div class="dot" style="background:#378ADD"></div><span class="mn">Fiber</span><div class="bar-bg"><div class="bar-f" id="bar-fi" style="background:#378ADD;width:0%"></div></div><span class="mv" id="val-fi">0g</span></div>
+      </div>
+    </div>
+
+    <div class="goal-badge" id="goal-badge">
+      <div class="gb-left">
+        <div class="gb-dot" id="gb-dot"></div>
+        <div><div style="font-size:13px;font-weight:600;color:var(--t)" id="gb-name">No goal set</div><div style="font-size:11px;color:var(--t2)" id="gb-sub">Set up your profile</div></div>
+      </div>
+      <div style="font-size:13px;font-weight:600" id="gb-kcal">—</div>
+    </div>
+
+    <div class="card">
+      <div class="cam-preview" id="cam-preview" onclick="document.getElementById('file-input').click()">
+        <div class="cam-ph" id="cam-ph">
+          <p style="font-size:28px;margin-bottom:6px">📷</p>
+          <p>Tap to photograph your food</p>
+          <small>Camera or gallery — any food or meal</small>
+        </div>
+        <img class="snap" id="snap-img" style="display:none" alt="food"/>
+      </div>
+      <input type="file" id="file-input" accept="image/*" capture="environment"/>
+      <div class="btn-row">
+        <button class="btn" id="btn-retake" style="display:none" onclick="retake()">↺ Retake</button>
+        <button class="btn prim" id="btn-analyze" style="display:none" onclick="analyzeFood()">Analyze</button>
+        <button class="btn prim" id="btn-cam" onclick="document.getElementById('file-input').click()">📷 Photo</button>
+        <button class="btn blue" onclick="openScanner()">▥ Barcode</button>
+        <button class="btn" onclick="document.getElementById('file-input').click()">📁 Upload</button>
+      </div>
+    </div>
+
+    <div class="analyzing" id="analyzing"><div class="spin"></div><span id="analyzing-txt">Analyzing with AI...</span></div>
+
+    <div class="bc-modal" id="bc-modal">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:14px;font-weight:600;color:#fff">Scan barcode</span>
+        <button class="btn" style="flex:none;padding:4px 10px;font-size:12px;background:rgba(255,255,255,0.2);color:#fff;border-color:rgba(255,255,255,0.3)" onclick="closeScanner()">✕ Close</button>
+      </div>
+      <div class="bc-video-wrap">
+        <video id="bc-video" autoplay playsinline muted></video>
+        <div class="bc-overlay"><div class="bc-frame"></div></div>
+      </div>
+      <div class="bc-status" id="bc-status">Point camera at barcode</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.6);text-align:center">— or enter manually —</div>
+      <div class="bc-manual">
+        <input type="number" id="bc-manual-input" placeholder="Enter barcode number..." style="background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.3);color:#fff"/>
+        <button class="btn blue" style="flex:none" onclick="lookupManual()">Look up</button>
+      </div>
+    </div>
+
+    <div class="res-card" id="res-card">
+      <div class="res-head"><span class="res-name" id="r-name">—</span><span class="res-badge" id="r-kcal">—</span></div>
+      <div class="res-macros">
+        <div class="rm2"><div class="rv" id="r-p">—</div><div class="rn">protein</div></div>
+        <div class="rm2"><div class="rv" id="r-c">—</div><div class="rn">carbs</div></div>
+        <div class="rm2"><div class="rv" id="r-f">—</div><div class="rn">fat</div></div>
+        <div class="rm2"><div class="rv" id="r-fi">—</div><div class="rn">fiber</div></div>
+      </div>
+      <div style="font-size:11px;color:var(--t2);padding:0 13px 6px" id="r-source"></div>
+      <div class="res-acts">
+        <button class="btn" onclick="dismissRes()">✕ Dismiss</button>
+        <button class="btn prim" onclick="addToLog()">+ Add to log</button>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:7px">
+      <div class="sec-hd">Today's meals</div>
+      <div class="empty-state" id="log-empty">No meals logged yet</div>
+      <div id="log-list"></div>
+    </div>
+  </div>
+
+  <!-- WATER TAB -->
+  <div class="section" id="tab-water">
+    <div class="card card-p">
+      <div class="card-hd">Daily water intake</div>
+      <div class="water-ring-wrap">
+        <div class="water-ring">
+          <svg viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="42" fill="none" stroke="var(--bg2)" stroke-width="9"/>
+            <circle cx="50" cy="50" r="42" fill="none" stroke="#378ADD" stroke-width="9"
+              stroke-dasharray="264" id="water-ring-prog" stroke-dashoffset="264" stroke-linecap="round"/>
+          </svg>
+          <div class="water-lbl">
+            <div class="wv" id="water-total">0</div>
+            <div class="wu">ml</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:13px;color:var(--t2)">Goal: <span style="font-weight:600;color:var(--t)" id="water-goal-disp">2500</span> ml</div>
+          <div style="font-size:13px;color:var(--t2)">Remaining: <span style="font-weight:600;color:var(--bm)" id="water-remain">2500</span> ml</div>
+          <div style="font-size:11px;color:var(--t2)" id="water-pct">0% of goal</div>
+        </div>
+      </div>
+      <div class="water-goal-row" style="margin-bottom:10px">
+        <span style="font-size:13px;color:var(--t2)">Daily goal:</span>
+        <input type="number" id="water-goal-input" value="2500" min="500" max="6000" step="100"/>
+        <span style="font-size:13px;color:var(--t2)">ml</span>
+        <button class="btn" style="flex:none;font-size:12px;padding:5px 10px" onclick="saveWaterGoal()">Set</button>
+      </div>
+      <div class="water-btns">
+        <button class="water-btn" onclick="addWater(150)">+ 150 ml<br><span style="font-size:10px;color:var(--t2)">small cup</span></button>
+        <button class="water-btn" onclick="addWater(250)">+ 250 ml<br><span style="font-size:10px;color:var(--t2)">glass</span></button>
+        <button class="water-btn" onclick="addWater(330)">+ 330 ml<br><span style="font-size:10px;color:var(--t2)">can</span></button>
+        <button class="water-btn" onclick="addWater(500)">+ 500 ml<br><span style="font-size:10px;color:var(--t2)">bottle</span></button>
+        <button class="water-btn" onclick="addWater(750)">+ 750 ml<br><span style="font-size:10px;color:var(--t2)">large bottle</span></button>
+        <button class="water-btn" onclick="addWater(1000)">+ 1000 ml<br><span style="font-size:10px;color:var(--t2)">1 liter</span></button>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div class="sec-hd">Today's log</div>
+      <div class="empty-state" id="water-empty">No water logged yet</div>
+      <div id="water-log-list"></div>
+    </div>
+  </div>
+
+  <!-- WEIGHT TAB -->
+  <div class="section" id="tab-weight">
+    <div class="card card-p">
+      <div class="card-hd">Log body weight</div>
+      <div class="weight-entry">
+        <div style="flex:1"><label>Weight (kg)</label><input type="number" id="wt-input" placeholder="70.5" min="20" max="400" step="0.1"/></div>
+        <div><label>Date</label><input type="date" id="wt-date"/></div>
+        <button class="btn prim" style="flex:none;align-self:flex-end;padding:8px 14px" onclick="logWeight()">Log</button>
+      </div>
+    </div>
+    <div class="card card-p">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="card-hd" style="margin:0">Weight progress</div>
+        <div id="wt-stats" style="font-size:11px;color:var(--t2)"></div>
+      </div>
+      <div class="legend" style="margin-bottom:8px">
+        <span><span class="leg-sq" style="background:#534AB7"></span>Body weight</span>
+        <span><span class="leg-sq" style="background:#5DCAA5"></span>7-day avg</span>
+      </div>
+      <div style="position:relative;width:100%;height:200px"><canvas id="wt-chart"></canvas></div>
+      <div class="empty-state" id="wt-chart-empty" style="display:none;border:none">Log at least 2 entries to see chart</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div class="sec-hd">History</div>
+      <div class="empty-state" id="wt-empty">No weight entries yet</div>
+      <div id="wt-log-list"></div>
+    </div>
+  </div>
+
+  <!-- HISTORY TAB -->
+  <div class="section" id="tab-history">
+    <div class="card card-p">
+      <div class="card-hd">7-day calories</div>
+      <div class="legend" style="margin-bottom:8px">
+        <span><span class="leg-sq" style="background:#639922"></span>Consumed</span>
+        <span><span class="leg-sq" style="background:#E24B4A"></span>Goal</span>
+      </div>
+      <div style="position:relative;width:100%;height:200px"><canvas id="hist-chart"></canvas></div>
+    </div>
+    <div class="card card-p">
+      <div class="card-hd">7-day macros</div>
+      <div class="legend" style="margin-bottom:8px">
+        <span><span class="leg-sq" style="background:#639922"></span>Protein</span>
+        <span><span class="leg-sq" style="background:#BA7517"></span>Carbs</span>
+        <span><span class="leg-sq" style="background:#E24B4A"></span>Fat</span>
+      </div>
+      <div style="position:relative;width:100%;height:200px"><canvas id="macro-chart"></canvas></div>
+    </div>
+    <div class="card card-p">
+      <div class="card-hd">7-day hydration</div>
+      <div class="legend" style="margin-bottom:8px">
+        <span><span class="leg-sq" style="background:#378ADD"></span>Water intake</span>
+        <span><span class="leg-sq" style="background:#5DCAA5"></span>Goal</span>
+      </div>
+      <div style="position:relative;width:100%;height:180px"><canvas id="water-hist-chart"></canvas></div>
+    </div>
+    <div style="font-size:11px;color:var(--t2);text-align:center;padding:.25rem 0">All data stored locally on your device</div>
+  </div>
+
+  <!-- PROFILE TAB -->
+  <div class="section" id="tab-profile">
+    <div class="profile-card">
+      <div style="font-size:14px;font-weight:600;color:var(--t)">Your details</div>
+      <div class="pf-row">
+        <div class="pf-field"><label>Age</label><input type="number" id="pf-age" placeholder="25" min="10" max="100"/></div>
+        <div class="pf-field"><label>Sex</label><select id="pf-sex"><option value="male">Male</option><option value="female">Female</option></select></div>
+      </div>
+      <div class="pf-row">
+        <div class="pf-field"><label>Weight (kg)</label><input type="number" id="pf-weight" placeholder="70" min="30" max="300"/></div>
+        <div class="pf-field"><label>Height (cm)</label><input type="number" id="pf-height" placeholder="175" min="100" max="250"/></div>
+      </div>
+      <div class="pf-field"><label>Activity level</label>
+        <select id="pf-activity">
+          <option value="1.2">Sedentary (desk job, no exercise)</option>
+          <option value="1.375">Lightly active (1-3 days/week)</option>
+          <option value="1.55" selected>Moderately active (3-5 days/week)</option>
+          <option value="1.725">Very active (6-7 days/week)</option>
+          <option value="1.9">Extremely active (athlete / physical job)</option>
+        </select>
+      </div>
+    </div>
+    <div class="profile-card">
+      <div style="font-size:14px;font-weight:600;color:var(--t)">Diet goal</div>
+      <div class="goal-opts">
+        <div class="goal-opt" id="go-bulk" onclick="selectGoal('bulk')"><div class="go-icon">💪</div><div class="go-name">Bulk</div><div class="go-sub">Build muscle</div></div>
+        <div class="goal-opt" id="go-maintain" onclick="selectGoal('maintain')"><div class="go-icon">⚡</div><div class="go-name">Maintain</div><div class="go-sub">Stay balanced</div></div>
+        <div class="goal-opt" id="go-cut" onclick="selectGoal('cut')"><div class="go-icon">🔥</div><div class="go-name">Cut</div><div class="go-sub">Lose fat</div></div>
+      </div>
+    </div>
+    <div class="tdee-box" id="tdee-result" style="display:none">
+      <div class="tdee-row"><span class="tl">BMR</span><span class="tv" id="td-bmr">—</span></div>
+      <div class="tdee-row"><span class="tl">TDEE</span><span class="tv" id="td-tdee">—</span></div>
+      <div class="tdee-row"><span class="tl">Calorie goal</span><span class="tv hi" id="td-goal">—</span></div>
+      <div class="tdee-row"><span class="tl">Protein target</span><span class="tv" id="td-prot">—</span></div>
+    </div>
+    <button class="btn prim" onclick="saveProfile()" style="width:100%;padding:11px">Save profile</button>
+    <div style="font-size:11px;color:var(--t2);text-align:center">All data stored locally on your device</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
