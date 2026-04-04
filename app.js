@@ -94,7 +94,7 @@ async function analyzeFood() {
   const mt  = capturedImg.split(';')[0].split(':')[1];
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const resp = await fetch('https://nutrisnap.moesham3a.workers.dev', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -163,7 +163,7 @@ async function lookupBarcode(code) {
 
 async function lookupBarcodeAI(code) {
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const resp = await fetch('https://nutrisnap.moesham3a.workers.dev', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
