@@ -222,6 +222,70 @@
         <button class="btn" onclick="document.getElementById('file-input').click()">📁 Upload</button>
       </div>
     </div>
+    <!-- paste this after the closing </div> of the cam-card -->
+    <div class="card">
+      <div class="card-p" style="display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:13px;font-weight:500;color:var(--t)">
+          Describe a meal
+        </div>
+        <textarea id="meal-desc" rows="2"
+          placeholder="e.g. 2 scrambled eggs with toast and butter, large coffee with milk..."
+          style="width:100%;border-radius:var(--rm);padding:8px 10px;font-size:13px;
+                 border:0.5px solid var(--bd2);background:var(--bg);color:var(--t);
+                 font-family:inherit;resize:none"></textarea>
+        <button class="btn prim" id="btn-estimate" onclick="estimateMeal()">
+          Estimate nutrition
+        </button>
+      </div>
+
+      <!-- editable result — hidden until estimate returns -->
+      <div id="meal-result" style="display:none;border-top:0.5px solid var(--bd);padding:10px 14px;
+           display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:12px;color:var(--t2)">Edit before adding:</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div style="grid-column:1/-1">
+            <label style="font-size:11px;color:var(--t2)">Food name</label>
+            <input id="me-name" type="text" style="width:100%;border-radius:var(--rm);
+              padding:6px 9px;font-size:13px;border:0.5px solid var(--bd2);
+              background:var(--bg);color:var(--t);font-family:inherit"/>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--t2)">Calories (kcal)</label>
+            <input id="me-kcal" type="number" style="width:100%;border-radius:var(--rm);
+              padding:6px 9px;font-size:13px;border:0.5px solid var(--bd2);
+              background:var(--bg);color:var(--t);font-family:inherit"/>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--t2)">Protein (g)</label>
+            <input id="me-protein" type="number" style="width:100%;border-radius:var(--rm);
+              padding:6px 9px;font-size:13px;border:0.5px solid var(--bd2);
+              background:var(--bg);color:var(--t);font-family:inherit"/>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--t2)">Carbs (g)</label>
+            <input id="me-carbs" type="number" style="width:100%;border-radius:var(--rm);
+              padding:6px 9px;font-size:13px;border:0.5px solid var(--bd2);
+              background:var(--bg);color:var(--t);font-family:inherit"/>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--t2)">Fat (g)</label>
+            <input id="me-fat" type="number" style="width:100%;border-radius:var(--rm);
+              padding:6px 9px;font-size:13px;border:0.5px solid var(--bd2);
+              background:var(--bg);color:var(--t);font-family:inherit"/>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--t2)">Fiber (g)</label>
+            <input id="me-fiber" type="number" style="width:100%;border-radius:var(--rm);
+              padding:6px 9px;font-size:13px;border:0.5px solid var(--bd2);
+              background:var(--bg);color:var(--t);font-family:inherit"/>
+          </div>
+        </div>
+        <div style="display:flex;gap:7px">
+          <button class="btn" onclick="dismissMealEstimate()">✕ Dismiss</button>
+          <button class="btn prim" onclick="addMealEstimateToLog()">+ Add to log</button>
+        </div>
+      </div>
+    </div>
 
     <div class="analyzing" id="analyzing"><div class="spin"></div><span id="analyzing-txt">Analyzing with AI...</span></div>
 

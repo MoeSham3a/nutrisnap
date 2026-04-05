@@ -183,6 +183,78 @@ async function lookupBarcodeAI(code) {
   }
 }
 
+async function estimateMeal() {
+  const desc = document.getElementById('meal-desc').value.trim();
+  if (!desc) return;
+
+  document.getElementById('btn-estimate').disabled = true;
+  document.getElementById('btn-estimate').textContent = 'Estimating...';
+  document.getElementById('meal-result').style.display = 'none';
+
+  try {
+    const resp = await fetch('https://nutrisnap.moesham3a.workers.dev', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 400,
+        messages: [{ role: 'user', content:
+          `The user described what they ate: "${desc}"
+Estimate the nutritional content. Be realistic about home-cooked and restaurant portions.
+Respond ONLY with a JSON object (no markdown, no backticks):
+{"name":"Descriptive meal name","calories":520,"protein_g":28,"carbs_g":45,"fat_g":22,"fiber_g":4}` }]
+      })
+    });
+
+    const data = await resp.json();
+    const txt = data.content.find(b => b.type === 'text')?.text || '{}';
+    let p;
+    try { p = JSON.parse(txt.replace(/```json|```/g, '').trim()); }
+    catch(e) { throw new Error('parse'); }
+
+    // populate editable fields
+    document.getElementById('me-name').value   = p.name       || desc;
+    document.getElementById('me-kcal').value   = Math.round(p.calories   || 0);
+    document.getElementById('me-protein').value= Math.round(p.protein_g  || 0);
+    document.getElementById('me-carbs').value  = Math.round(p.carbs_g    || 0);
+    document.getElementById('me-fat').value    = Math.round(p.fat_g      || 0);
+    document.getElementById('me-fiber').value  = Math.round(p.fiber_g    || 0);
+
+    document.getElementById('meal-result').style.display = 'flex';
+
+  } catch(e) {
+    alert('Could not estimate. Please try again.');
+  }
+
+  document.getElementById('btn-estimate').disabled = false;
+  document.getElementById('btn-estimate').textContent = 'Estimate nutrition';
+}
+
+function dismissMealEstimate() {
+  document.getElementById('meal-result').style.display = 'none';
+  document.getElementById('meal-desc').value = '';
+}
+
+function addMealEstimateToLog() {
+  const entry = {
+    name:      document.getElementById('me-name').value    || 'Manual entry',
+    calories:  parseFloat(document.getElementById('me-kcal').value)    || 0,
+    protein_g: parseFloat(document.getElementById('me-protein').value) || 0,
+    carbs_g:   parseFloat(document.getElementById('me-carbs').value)   || 0,
+    fat_g:     parseFloat(document.getElementById('me-fat').value)     || 0,
+    fiber_g:   parseFloat(document.getElementById('me-fiber').value)   || 0,
+    img:       null,  // no photo for text entries
+    id:        Date.now()
+  };
+
+  todayLog.push(entry);
+  S.set('log_' + todayKey, todayLog);
+  saveHistoryDay();
+  renderLog();
+  updateSummary();
+  dismissMealEstimate();
+}
+
 async function openScanner() {
   document.getElementById('bc-modal').classList.add('show');
   document.getElementById('bc-status').textContent = 'Starting camera...';
