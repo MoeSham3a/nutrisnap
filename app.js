@@ -137,13 +137,17 @@ async function analyzeFood() {
       })
     });
     const data = await resp.json();
+    if (!resp.ok) {
+      const msg = data?.error?.message || 'API error (' + resp.status + ')';
+      throw new Error(msg);
+    }
     const txt = data.content.find(b => b.type === 'text')?.text || '{}';
     let p;
     try { p = JSON.parse(txt.replace(/```json|```/g, '').trim()); }
     catch(e) { throw new Error('parse'); }
     showResult(p, 'AI vision');
   } catch(e) {
-    showToast('Could not analyze image. Please try again.');
+    showToast(e.message && e.message.length < 120 ? e.message : 'Could not analyze image. Please try again.');
   }
 
   document.getElementById('analyzing').classList.remove('show');
@@ -237,6 +241,10 @@ Respond ONLY with a JSON object (no markdown, no backticks):
     });
 
     const data = await resp.json();
+    if (!resp.ok) {
+      const msg = data?.error?.message || 'API error (' + resp.status + ')';
+      throw new Error(msg);
+    }
     const txt = data.content.find(b => b.type === 'text')?.text || '{}';
     let p;
     try { p = JSON.parse(txt.replace(/```json|```/g, '').trim()); }
@@ -253,7 +261,7 @@ Respond ONLY with a JSON object (no markdown, no backticks):
     document.getElementById('meal-result').style.display = 'flex';
 
   } catch(e) {
-    showToast('Could not estimate. Please try again.');
+    showToast(e.message && e.message.length < 120 ? e.message : 'Could not estimate. Please try again.');
   }
 
   document.getElementById('btn-estimate').disabled = false;
