@@ -16,7 +16,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   // Network-first for API calls, cache-first for assets
-  if (e.request.url.includes('api.anthropic.com') || e.request.url.includes('openfoodfacts')) {
+  if (e.request.url.includes('api.anthropic.com') || e.request.url.includes('openfoodfacts') || e.request.url.includes('workers.dev')) {
     e.respondWith(fetch(e.request).catch(() => new Response('{}', { headers: { 'Content-Type': 'application/json' } })));
     return;
   }

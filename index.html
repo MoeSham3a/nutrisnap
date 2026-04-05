@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover"/>
   <meta name="description" content="NutriSnap — AI-powered calorie counter with barcode scanner, water tracker and weight log"/>
   <meta name="theme-color" content="#639922"/>
   <title>NutriSnap</title>
@@ -29,13 +29,14 @@
       }
     }
     html,body{height:100%;background:var(--bg)}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--t);max-width:480px;margin:0 auto;padding:0 12px}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--t);max-width:480px;margin:0 auto;padding:0 12px;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
+    .shell{padding-bottom:calc(5rem + env(safe-area-inset-bottom))!important}
     .shell{display:flex;flex-direction:column;gap:10px;padding:.75rem 0 5rem}
     .topbar{display:flex;justify-content:space-between;align-items:center;padding:.25rem 0}
     .topbar h1{font-size:22px;font-weight:600;color:var(--t)}
     .topbar h1 span{color:var(--g)}
     .tab-bar{display:flex;gap:3px;background:var(--bg2);border-radius:var(--rm);padding:3px;position:sticky;top:8px;z-index:10}
-    .tab{flex:1;padding:6px 4px;border:none;background:none;border-radius:6px;font-size:11px;cursor:pointer;color:var(--t2);font-family:inherit;white-space:nowrap;transition:all .15s}
+    .tab{flex:1;padding:6px 4px;border:none;background:none;border-radius:6px;font-size:11px;cursor:pointer;color:var(--t2);font-family:inherit;white-space:nowrap;transition:all .15s;touch-action:manipulation}
     .tab.active{background:var(--bg);color:var(--t);font-weight:600}
     .section{display:none}.section.active{display:flex;flex-direction:column;gap:10px}
 
@@ -66,11 +67,15 @@
     .cam-ph{text-align:center;color:var(--t2);z-index:1}
     .cam-ph p{font-size:13px}.cam-ph small{font-size:11px;opacity:.7}
     .btn-row{display:flex;gap:7px;padding:9px}
-    .btn{flex:1;padding:8px;border-radius:var(--rm);border:0.5px solid var(--bd2);background:var(--bg);color:var(--t);font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;font-family:inherit;transition:opacity .15s}
+    .btn{flex:1;padding:8px;border-radius:var(--rm);border:0.5px solid var(--bd2);background:var(--bg);color:var(--t);font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;font-family:inherit;transition:opacity .15s;touch-action:manipulation}
     .btn.prim{background:var(--g);color:#fff;border-color:var(--g)}
     .btn.blue{background:var(--b);color:#fff;border-color:var(--b)}
     .btn:active{opacity:.8;transform:scale(.98)}
     .btn:disabled{opacity:.4;cursor:not-allowed}
+    /* Toast notifications */
+    .toast{position:fixed;bottom:calc(80px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(12px);background:#1a1a1a;color:#fff;padding:10px 18px;border-radius:99px;font-size:13px;font-weight:500;z-index:999;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;white-space:nowrap;max-width:calc(100vw - 40px);text-align:center}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    .toast.ok{background:var(--gd)}
 
     .analyzing{display:none;align-items:center;gap:10px;background:var(--al);border-radius:var(--rm);padding:9px 13px;font-size:13px;color:var(--a)}
     .analyzing.show{display:flex}
@@ -239,8 +244,8 @@
       </div>
 
       <!-- editable result — hidden until estimate returns -->
-      <div id="meal-result" style="display:none;border-top:0.5px solid var(--bd);padding:10px 14px;
-           display:flex;flex-direction:column;gap:10px">
+      <div id="meal-result" style="border-top:0.5px solid var(--bd);padding:10px 14px;
+           display:none;flex-direction:column;gap:10px">
         <div style="font-size:12px;color:var(--t2)">Edit before adding:</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div style="grid-column:1/-1">
@@ -301,7 +306,7 @@
       <div class="bc-status" id="bc-status">Point camera at barcode</div>
       <div style="font-size:11px;color:rgba(255,255,255,0.6);text-align:center">— or enter manually —</div>
       <div class="bc-manual">
-        <input type="number" id="bc-manual-input" placeholder="Enter barcode number..." style="background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.3);color:#fff"/>
+        <input type="text" inputmode="numeric" pattern="[0-9]*" id="bc-manual-input" placeholder="Enter barcode number..." style="background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.3);color:#fff"/>
         <button class="btn blue" style="flex:none" onclick="lookupManual()">Look up</button>
       </div>
     </div>
@@ -473,6 +478,14 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script src="app.js"></script>
+<!-- BarcodeDetector polyfill for iOS Safari (ZXing/WASM under the hood) -->
+<script type="module">
+  if (!('BarcodeDetector' in window)) {
+    const { BarcodeDetector: Polyfill } =
+      await import('https://cdn.jsdelivr.net/npm/barcode-detector@2/dist/es/pure.min.js');
+    window.BarcodeDetector = Polyfill;
+  }
+</script>
+<script src="app.js" defer></script>
 </body>
 </html>

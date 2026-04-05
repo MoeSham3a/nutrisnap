@@ -17,6 +17,36 @@ let capturedImg = null, currentRes = null;
 let bcStream = null, bcTimer = null;
 let charts = {};
 
+// ── Image resize (iOS photos can be 12MP+ — cap at 1024px before base64 send) ─
+function resizeBase64(dataUrl, maxPx = 1024) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(maxPx / img.width, maxPx / img.height, 1);
+      if (scale >= 1) { resolve(dataUrl); return; }   // already small enough
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.round(img.width  * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.src = dataUrl;
+  });
+}
+
+// ── Toast notifications (replaces alert()) ────────────────────────────────────
+function showToast(msg, type = 'err') {
+  const t = document.createElement('div');
+  t.className = 'toast' + (type === 'ok' ? ' ok' : '');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => { requestAnimationFrame(() => t.classList.add('show')); });
+  setTimeout(() => {
+    t.classList.remove('show');
+    setTimeout(() => t.remove(), 300);
+  }, 3500);
+}
+
 // ── Goal config ────────────────────────────────────────────────────────
 const GOALS = {
   bulk:     { label:'Bulking',  sub:'Build muscle mass', color:'#185FA5', dot:'#185FA5', adj:+350, protMult:2.2 },
@@ -57,8 +87,8 @@ document.getElementById('today-date').textContent =
 document.getElementById('file-input').addEventListener('change', e => {
   const file = e.target.files[0]; if (!file) return;
   const r = new FileReader();
-  r.onload = ev => {
-    capturedImg = ev.target.result;
+  r.onload = async ev => {
+    capturedImg = await resizeBase64(ev.target.result);
     document.getElementById('snap-img').src = capturedImg;
     document.getElementById('snap-img').style.display = 'block';
     document.getElementById('cam-ph').style.display = 'none';
@@ -113,7 +143,7 @@ async function analyzeFood() {
     catch(e) { throw new Error('parse'); }
     showResult(p, 'AI vision');
   } catch(e) {
-    alert('Could not analyze image. Please try again.');
+    showToast('Could not analyze image. Please try again.');
   }
 
   document.getElementById('analyzing').classList.remove('show');
@@ -223,7 +253,7 @@ Respond ONLY with a JSON object (no markdown, no backticks):
     document.getElementById('meal-result').style.display = 'flex';
 
   } catch(e) {
-    alert('Could not estimate. Please try again.');
+    showToast('Could not estimate. Please try again.');
   }
 
   document.getElementById('btn-estimate').disabled = false;
@@ -364,10 +394,11 @@ function updateSummary() {
   document.getElementById('ring-progress').style.strokeDashoffset = circ - circ * pct;
   document.getElementById('ring-progress').setAttribute('stroke', col);
 
-  document.getElementById('bar-p').style.width  = Math.min(t.p  / pGoal * 100, 100) + '%';
-  document.getElementById('bar-c').style.width  = Math.min(t.c  / 300   * 100, 100) + '%';
-  document.getElementById('bar-f2').style.width = Math.min(t.f  / 80    * 100, 100) + '%';
-  document.getElementById('bar-fi').style.width = Math.min(t.fi / 30    * 100, 100) + '%';
+  const carbGoal = Math.round(getGoalKcal() * 0.45 / 4);   // 45% of kcal from carbs
+  document.getElementById('bar-p').style.width  = Math.min(t.p  / pGoal   * 100, 100) + '%';
+  document.getElementById('bar-c').style.width  = Math.min(t.c  / carbGoal * 100, 100) + '%';
+  document.getElementById('bar-f2').style.width = Math.min(t.f  / 80       * 100, 100) + '%';
+  document.getElementById('bar-fi').style.width = Math.min(t.fi / 30       * 100, 100) + '%';
 }
 
 function saveHistoryDay() {
