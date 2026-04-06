@@ -17,6 +17,39 @@ let capturedImg = null, currentRes = null;
 let bcStream = null, bcTimer = null;
 let charts = {};
 
+// ── Theme (dark / light) ────────────────────────────────────────────────
+function systemIsDark() {
+  return window.matchMedia('(prefers-color-scheme:dark)').matches;
+}
+function initTheme() {
+  const saved = S.get('theme'); // 'dark' | 'light' | null
+  if (saved) document.documentElement.classList.add(saved);
+  updateThemeIcon();
+}
+function toggleTheme() {
+  const html = document.documentElement;
+  const manualDark  = html.classList.contains('dark');
+  const manualLight = html.classList.contains('light');
+  html.classList.remove('dark', 'light');
+  if (manualLight || (!manualDark && !manualLight && !systemIsDark())) {
+    // Was light (manual or system) → go dark
+    html.classList.add('dark');
+    S.set('theme', 'dark');
+  } else {
+    // Was dark (manual or system) → go light
+    html.classList.add('light');
+    S.set('theme', 'light');
+  }
+  updateThemeIcon();
+}
+function updateThemeIcon() {
+  const html = document.documentElement;
+  const isDark = html.classList.contains('dark') ||
+    (!html.classList.contains('light') && systemIsDark());
+  const btn = document.getElementById('theme-btn');
+  if (btn) btn.textContent = isDark ? '☀️' : '🌙';
+}
+
 // ── Image resize (iOS photos can be 12MP+ — cap at 1024px before base64 send) ─
 function resizeBase64(dataUrl, maxPx = 1024) {
   return new Promise(resolve => {
@@ -660,4 +693,4 @@ function saveProfile() {
 
 // ── Init ───────────────────────────────────────────────────────────────
 document.getElementById('wt-date').value = todayKey;
-loadProfileUI(); renderLog(); updateSummary(); updateGoalBadge(); renderWater(); renderWeightLog();
+initTheme(); loadProfileUI(); renderLog(); updateSummary(); updateGoalBadge(); renderWater(); renderWeightLog();
