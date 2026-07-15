@@ -161,7 +161,7 @@ async function analyzeFood() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-5',
         max_tokens: 500,
         messages: [{ role: 'user', content: [
           { type: 'image', source: { type: 'base64', media_type: mt, data: b64 } },
@@ -234,7 +234,7 @@ async function lookupBarcodeAI(code) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-5',
         max_tokens: 400,
         messages: [{ role: 'user', content: `Barcode: ${code}. If you recognize this product, return its nutrition info. Respond ONLY with JSON (no markdown): {"name":"Product Name","calories":200,"protein_g":5,"carbs_g":30,"fat_g":8,"fiber_g":2}. If unknown, estimate based on typical products with this barcode format.` }]
       })
@@ -263,7 +263,7 @@ async function estimateMeal() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-5',
         max_tokens: 400,
         messages: [{ role: 'user', content:
           `The user described what they ate: "${desc}"
