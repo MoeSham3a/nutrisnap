@@ -1,4 +1,4 @@
-const CACHE = 'nutrisnap-v1';
+const CACHE = 'nutrisnap-v2';
 const ASSETS = ['/', '/index.html', '/app.js', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -15,16 +15,17 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
-  // Network-first for API calls, cache-first for assets
+  // API calls: always network, never cached
   if (e.request.url.includes('api.anthropic.com') || e.request.url.includes('openfoodfacts') || e.request.url.includes('workers.dev')) {
     e.respondWith(fetch(e.request).catch(() => new Response('{}', { headers: { 'Content-Type': 'application/json' } })));
     return;
   }
+  // Network-first for app shell so deploys reach returning visitors; cache is only the offline fallback.
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request).then(resp => {
+    fetch(e.request).then(resp => {
       const clone = resp.clone();
       caches.open(CACHE).then(c => c.put(e.request, clone));
       return resp;
-    }))
+    }).catch(() => caches.match(e.request))
   );
 });
