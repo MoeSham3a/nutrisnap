@@ -14,6 +14,7 @@ let waterLog   = S.get('water_' + todayKey) || [];
 let waterGoal  = S.get('waterGoal') || 2500;
 let weightLog  = S.get('weightLog') || [];
 let capturedImg = null, currentRes = null;
+let editingLogId = null;
 let bcStream = null, bcTimer = null;
 let charts = {};
 
@@ -68,23 +69,28 @@ function resizeBase64(dataUrl, maxPx = 1024) {
 }
 
 // ── Toast notifications (replaces alert()) ────────────────────────────────────
-function showToast(msg, type = 'err') {
+function showToast(msg, type = 'err', opts = {}) {
   const t = document.createElement('div');
   t.className = 'toast' + (type === 'ok' ? ' ok' : '');
   t.textContent = msg;
+  const dismiss = () => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); };
+  if (opts.actionLabel && opts.onAction) {
+    const btn = document.createElement('button');
+    btn.className = 'toast-action';
+    btn.textContent = opts.actionLabel;
+    btn.onclick = () => { opts.onAction(); dismiss(); };
+    t.appendChild(btn);
+  }
   document.body.appendChild(t);
   requestAnimationFrame(() => { requestAnimationFrame(() => t.classList.add('show')); });
-  setTimeout(() => {
-    t.classList.remove('show');
-    setTimeout(() => t.remove(), 300);
-  }, 3500);
+  setTimeout(dismiss, 3500);
 }
 
 // ── Goal config ────────────────────────────────────────────────────────
 const GOALS = {
-  bulk:     { label:'Bulking',  sub:'Build muscle mass', color:'#185FA5', dot:'#185FA5', adj:+350, protMult:2.2 },
-  maintain: { label:'Maintain', sub:'Stay balanced',     color:'#639922', dot:'#639922', adj:0,    protMult:1.8 },
-  cut:      { label:'Cutting',  sub:'Lose body fat',     color:'#E24B4A', dot:'#E24B4A', adj:-500, protMult:2.4 },
+  bulk:     { label:'Bulking',  sub:'Build muscle mass', color:'#886D56', dot:'#886D56', adj:+350, protMult:2.2 },
+  maintain: { label:'Maintain', sub:'Stay balanced',     color:'#B59173', dot:'#B59173', adj:0,    protMult:1.8 },
+  cut:      { label:'Cutting',  sub:'Lose body fat',     color:'#1F1817', dot:'#1F1817', adj:-500, protMult:2.4 },
 };
 
 // ── TDEE / Mifflin-St Jeor ─────────────────────────────────────────────
@@ -387,9 +393,52 @@ function dismissRes() {
 }
 
 function removeLog(id) {
-  todayLog = todayLog.filter(l => l.id !== id);
+  const idx = todayLog.findIndex(l => l.id === id);
+  if (idx === -1) return;
+  const [removed] = todayLog.splice(idx, 1);
   S.set('log_' + todayKey, todayLog);
   saveHistoryDay(); renderLog(); updateSummary();
+  showToast('Meal removed', 'ok', { actionLabel: 'Undo', onAction: () => {
+    todayLog.splice(idx, 0, removed);
+    S.set('log_' + todayKey, todayLog);
+    saveHistoryDay(); renderLog(); updateSummary();
+  }});
+}
+
+function editLog(id) {
+  const item = todayLog.find(l => l.id === id);
+  if (!item) return;
+  editingLogId = id;
+  document.getElementById('le-name').value    = item.name || '';
+  document.getElementById('le-kcal').value    = Math.round(item.calories   || 0);
+  document.getElementById('le-protein').value = Math.round(item.protein_g || 0);
+  document.getElementById('le-carbs').value   = Math.round(item.carbs_g   || 0);
+  document.getElementById('le-fat').value     = Math.round(item.fat_g     || 0);
+  document.getElementById('le-fiber').value   = Math.round(item.fiber_g  || 0);
+  document.getElementById('log-edit').style.display = 'flex';
+  document.getElementById('log-edit').scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function cancelEditLog() {
+  editingLogId = null;
+  document.getElementById('log-edit').style.display = 'none';
+}
+
+function saveEditLog() {
+  const idx = todayLog.findIndex(l => l.id === editingLogId);
+  if (idx === -1) { cancelEditLog(); return; }
+  todayLog[idx] = {
+    ...todayLog[idx],
+    name:      document.getElementById('le-name').value    || 'Unknown',
+    calories:  parseFloat(document.getElementById('le-kcal').value)    || 0,
+    protein_g: parseFloat(document.getElementById('le-protein').value) || 0,
+    carbs_g:   parseFloat(document.getElementById('le-carbs').value)   || 0,
+    fat_g:     parseFloat(document.getElementById('le-fat').value)     || 0,
+    fiber_g:   parseFloat(document.getElementById('le-fiber').value)   || 0,
+  };
+  S.set('log_' + todayKey, todayLog);
+  saveHistoryDay(); renderLog(); updateSummary();
+  cancelEditLog();
 }
 
 function calcTotals() {
@@ -417,7 +466,8 @@ function renderLog() {
         <div class="lm">${Math.round(item.protein_g||0)}g P · ${Math.round(item.carbs_g||0)}g C · ${Math.round(item.fat_g||0)}g F</div>
       </div>
       <div class="log-k">${Math.round(item.calories||0)}</div>
-      <button class="log-del" onclick="removeLog(${item.id})">✕</button>
+      <button class="log-del" onclick="editLog(${item.id})" title="Edit">✏️</button>
+      <button class="log-del" onclick="removeLog(${item.id})" title="Delete">✕</button>
     </div>`).join('');
 }
 
@@ -431,7 +481,7 @@ function updateSummary() {
   document.getElementById('val-fi').textContent = Math.round(t.fi) + 'g';
 
   const circ = 239, pct = Math.min(t.kcal / goal, 1);
-  const col = pct > 1.05 ? '#E24B4A' : pct > 0.9 ? '#BA7517' : '#639922';
+  const col = pct > 1.05 ? '#1F1817' : pct > 0.9 ? '#886D56' : '#B59173';
   document.getElementById('ring-progress').style.strokeDashoffset = circ - circ * pct;
   document.getElementById('ring-progress').setAttribute('stroke', col);
 
@@ -468,8 +518,14 @@ function addWater(ml) {
 }
 
 function removeWater(id) {
-  waterLog = waterLog.filter(w => w.id !== id);
+  const idx = waterLog.findIndex(w => w.id === id);
+  if (idx === -1) return;
+  const [removed] = waterLog.splice(idx, 1);
   S.set('water_' + todayKey, waterLog); saveHistoryDay(); renderWater();
+  showToast('Water entry removed', 'ok', { actionLabel: 'Undo', onAction: () => {
+    waterLog.splice(idx, 0, removed);
+    S.set('water_' + todayKey, waterLog); saveHistoryDay(); renderWater();
+  }});
 }
 
 function saveWaterGoal() {
@@ -513,8 +569,15 @@ function logWeight() {
 }
 
 function removeWeight(date) {
-  weightLog = weightLog.filter(w => w.date !== date);
+  const idx = weightLog.findIndex(w => w.date === date);
+  if (idx === -1) return;
+  const [removed] = weightLog.splice(idx, 1);
   S.set('weightLog', weightLog); renderWeightLog(); renderWeightChart();
+  showToast('Weight entry removed', 'ok', { actionLabel: 'Undo', onAction: () => {
+    weightLog.push(removed);
+    weightLog.sort((a, b) => a.date.localeCompare(b.date));
+    S.set('weightLog', weightLog); renderWeightLog(); renderWeightChart();
+  }});
 }
 
 function renderWeightLog() {
@@ -568,13 +631,13 @@ function renderWeightChart() {
   charts.wt = new Chart(canvas, {
     type: 'line',
     data: { labels, datasets: [
-      { label:'Weight', data:vals, borderColor:'#534AB7', backgroundColor:'rgba(83,74,183,0.08)', borderWidth:2, pointRadius:4, pointBackgroundColor:'#534AB7', tension:0.3, fill:true },
-      { label:'7-day avg', data:avgs, borderColor:'#5DCAA5', borderWidth:1.5, pointRadius:0, tension:0.4, borderDash:[4,3] }
+      { label:'Weight', data:vals, borderColor:'#B59173', backgroundColor:'rgba(181,145,115,0.12)', borderWidth:2, pointRadius:4, pointBackgroundColor:'#B59173', tension:0.3, fill:true },
+      { label:'7-day avg', data:avgs, borderColor:'#543733', borderWidth:1.5, pointRadius:0, tension:0.4, borderDash:[4,3] }
     ]},
     options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
       scales:{
-        x:{ grid:{ display:false }, ticks:{ color:'#888', font:{size:11}, maxRotation:45 } },
-        y:{ grid:{ color:'rgba(128,128,128,0.1)' }, ticks:{ color:'#888', font:{size:11}, callback: v => v + 'kg' } }
+        x:{ grid:{ display:false }, ticks:{ color:'#886D56', font:{size:11}, maxRotation:45 } },
+        y:{ grid:{ color:'rgba(56,38,34,0.12)' }, ticks:{ color:'#886D56', font:{size:11}, callback: v => v + 'kg' } }
       }
     }
   });
@@ -601,11 +664,11 @@ function renderHistCharts() {
   charts.hist = new Chart(document.getElementById('hist-chart'), {
     type: 'bar',
     data: { labels, datasets: [
-      { label:'Calories', data:kcals, backgroundColor:'#639922', borderRadius:4, barPercentage:0.6 },
-      { label:'Goal', data:goalLine, type:'line', borderColor:'#E24B4A', borderWidth:1.5, pointRadius:0, tension:0 }
+      { label:'Calories', data:kcals, backgroundColor:'#B59173', borderRadius:4, barPercentage:0.6 },
+      { label:'Goal', data:goalLine, type:'line', borderColor:'#1F1817', borderWidth:1.5, pointRadius:0, tension:0 }
     ]},
     options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
-      scales:{ x:{ grid:{ display:false }, ticks:{ color:'#888', font:{size:11} } }, y:{ grid:{ color:'rgba(128,128,128,0.1)' }, ticks:{ color:'#888', font:{size:11}, callback: v => v + 'kcal' } } }
+      scales:{ x:{ grid:{ display:false }, ticks:{ color:'#886D56', font:{size:11} } }, y:{ grid:{ color:'rgba(56,38,34,0.12)' }, ticks:{ color:'#886D56', font:{size:11}, callback: v => v + 'kcal' } } }
     }
   });
 
@@ -613,12 +676,12 @@ function renderHistCharts() {
   charts.macro = new Chart(document.getElementById('macro-chart'), {
     type: 'bar',
     data: { labels, datasets: [
-      { label:'Protein', data:prots, backgroundColor:'#639922', borderRadius:3, stack:'a' },
-      { label:'Carbs',   data:carbs, backgroundColor:'#BA7517', borderRadius:3, stack:'a' },
-      { label:'Fat',     data:fats,  backgroundColor:'#E24B4A', borderRadius:3, stack:'a' }
+      { label:'Protein', data:prots, backgroundColor:'#B59173', borderRadius:3, stack:'a' },
+      { label:'Carbs',   data:carbs, backgroundColor:'#382622', borderRadius:3, stack:'a' },
+      { label:'Fat',     data:fats,  backgroundColor:'#543733', borderRadius:3, stack:'a' }
     ]},
     options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
-      scales:{ x:{ grid:{ display:false }, ticks:{ color:'#888', font:{size:11} } }, y:{ grid:{ color:'rgba(128,128,128,0.1)' }, ticks:{ color:'#888', font:{size:11}, callback: v => v + 'g' }, stacked:true } }
+      scales:{ x:{ grid:{ display:false }, ticks:{ color:'#886D56', font:{size:11} } }, y:{ grid:{ color:'rgba(56,38,34,0.12)' }, ticks:{ color:'#886D56', font:{size:11}, callback: v => v + 'g' }, stacked:true } }
     }
   });
 
@@ -626,11 +689,11 @@ function renderHistCharts() {
   charts.water = new Chart(document.getElementById('water-hist-chart'), {
     type: 'bar',
     data: { labels, datasets: [
-      { label:'Water', data:waters, backgroundColor:'#378ADD', borderRadius:4, barPercentage:0.6 },
-      { label:'Goal',  data:wGoalLine, type:'line', borderColor:'#5DCAA5', borderWidth:1.5, pointRadius:0, tension:0 }
+      { label:'Water', data:waters, backgroundColor:'#886D56', borderRadius:4, barPercentage:0.6 },
+      { label:'Goal',  data:wGoalLine, type:'line', borderColor:'#543733', borderWidth:1.5, pointRadius:0, tension:0 }
     ]},
     options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
-      scales:{ x:{ grid:{ display:false }, ticks:{ color:'#888', font:{size:11} } }, y:{ grid:{ color:'rgba(128,128,128,0.1)' }, ticks:{ color:'#888', font:{size:11}, callback: v => v + 'ml' } } }
+      scales:{ x:{ grid:{ display:false }, ticks:{ color:'#886D56', font:{size:11} } }, y:{ grid:{ color:'rgba(56,38,34,0.12)' }, ticks:{ color:'#886D56', font:{size:11}, callback: v => v + 'ml' } } }
     }
   });
 }
@@ -650,7 +713,7 @@ function selectGoal(g, silent) {
     const el = document.getElementById('go-' + k);
     el.classList.toggle('selected', k === g);
     el.style.borderColor = k === g ? GOALS[k].color : '';
-    el.style.background  = k === g ? (k==='bulk'?'#E6F1FB':k==='cut'?'#FCEBEB':'#EAF3DE') : '';
+    el.style.background  = k === g ? '#FEE9D3' : '';
   });
   profile.goal = g;
   if (!silent) updateTDEE();
